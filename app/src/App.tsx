@@ -7,7 +7,6 @@ function App() {
       <div className=" col-span-1 ">
         <ServerBar />
       </div>
-
       <div className="col-span-3 ">
         <ChannelBar />
       </div>

@@ -10,23 +10,27 @@ import {
   DialogTrigger,
 } from "../ui/Dialog";
 import { Input } from "../ui/Input";
-import React from "react";
-import axios from "axios";
+import React, { useContext } from "react";
 import { Separator } from "../ui/Seperator";
+import { useToast } from "../ui/use-toast";
+import AuthContext from "../store/AuthContext";
+import useAuth from "../hooks/useAuth";
+import useAxiosPrivate from "../hooks/useAxiosPrivate";
 
 const AddServer = () => {
+  const { accessToken, csrftoken } = useAuth();
   const [server, setServer] = React.useState<string>("");
+  const { toast } = useToast();
+  const axiosPrivateInstance = useAxiosPrivate();
+
+  console.log(accessToken, csrftoken);
   const handleSubmit = async () => {
-    try {
-      const data = await axios.post("/api/server/create/", server);
-      console.log(data.status);
-    } catch (error: any) {
-      console.log(error);
-      if (error.response.status === 401) {
-        console.log("jdsfhkdsjfkdsf");
-      }
-    }
+    const res = await axiosPrivateInstance.post("server/create/", {
+      name: server,
+    });
+    console.log(res.data);
   };
+
   return (
     <div>
       <Dialog>
@@ -53,6 +57,7 @@ const AddServer = () => {
             </div>
 
             <DialogFooter className="flex flex-col gap-2">
+              {/* @ts-ignore */}
               <Button onClick={handleSubmit} className="bg-purple-500">
                 Create{" "}
               </Button>

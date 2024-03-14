@@ -2,8 +2,11 @@ import React from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/Avatar";
 import { ThemeToggler } from "./ThemeToggler";
 import AddServer from "./AddServer";
+import { Button } from "../ui/Button";
+import UserAuthentication from "./UserAuthentication";
 
 const ServerBar = () => {
+  const [isAuthenticated, setIsAuthenticated] = React.useState<boolean>(false);
   return (
     <div className="min-h-screen bg-black text-white flex flex-col justify-between">
       <div className="flex justify-center py-3 items-center">
@@ -15,10 +18,14 @@ const ServerBar = () => {
           <ThemeToggler />
         </div>
         <div className="mt-auto">
-          <Avatar>
-            <AvatarImage src="https://github.com/shadcn.png" />
-            <AvatarFallback>Image</AvatarFallback>
-          </Avatar>
+          {isAuthenticated ? (
+            <Avatar>
+              <AvatarImage src="https://github.com/shadcn.png" />
+              <AvatarFallback>Image</AvatarFallback>
+            </Avatar>
+          ) : (
+            <UserAuthentication />
+          )}
         </div>
       </div>
     </div>
