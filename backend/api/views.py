@@ -3,12 +3,11 @@ from django.views.decorators.csrf import csrf_protect
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Channel, Message, DirectMessge, Server, Member, User
-from .serializers import MessageSerializer, DirectMessageSerializer, ServerSerializer, MemberSerializer, ChanbelSerializer, UserSerializer, RegistrationSerializer, LoginSerializer, AccountSerializer
+from .serializers import MessageSerializer, DirectMessageSerializer, ServerSerializer, MemberSerializer, ChanbelSerializer, UserSerializer, RegistrationSerializer, LoginSerializer, AccountSerializer, ResponeServerSerializer
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
 from django.conf import settings
-from django.middleware import csrf
 from rest_framework import exceptions as rest_exceptions, response, decorators as rest_decorators, permissions as rest_permissions
 from rest_framework_simplejwt import tokens, views as jwt_views, serializers as jwt_serializers, exceptions as jwt_exceptions
 from django.views.decorators.csrf import csrf_protect
@@ -17,51 +16,11 @@ from django.views.decorators.csrf import csrf_protect
 def get_user_tokens(email):
     user = User.objects.get(email=email)
     refresh = RefreshToken.for_user(user)
+
     return {
         "refresh_token": str(refresh),
-        "access_token": str(refresh.access_token)
+        "access_token": str(refresh.access_token),
     }
-
-
-@api_view(["POST"])
-def loginView(request):
-    serializer = LoginSerializer(data=request.data)
-    if serializer.is_valid(raise_exception=True):
-        email = serializer.validated_data["email"]
-        password = serializer.validated_data["password"]
-
-        tokens = get_user_tokens(email)
-
-        response = Response()
-        response.set_cookie(
-            key=settings.SIMPLE_JWT['AUTH_COOKIE'],
-            value=tokens["access_token"],
-            expires=settings.SIMPLE_JWT['ACCESS_TOKEN_LIFETIME'],
-            secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
-            httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
-            samesite=settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE']
-        )
-
-        response.set_cookie(
-            key=settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'],
-            value=tokens["refresh_token"],
-            expires=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'],
-            secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
-            httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
-            samesite=settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE']
-        )
-
-        csrfToken = csrf.get_token(request)
-
-        response_data = {
-            "access_token": tokens["access_token"],
-            "refresh_token": tokens["refresh_token"],
-            "csrfToken": csrfToken
-        }
-        return Response(data=response_data, status=200)
-
-    else:
-        return Response({'msg': 'Invalid data'}, status=401)
 
 
 @rest_decorators.api_view(["POST"])
@@ -77,56 +36,23 @@ def registerView(request):
     return Response({'msg': 'invalid data'}, )
 
 
-@rest_decorators.api_view(['POST'])
-@rest_decorators.permission_classes([rest_permissions.IsAuthenticated])
-def logoutView(request):
-    try:
-        refreshToken = request.COOKIES.get(
-            settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
-        token = tokens.RefreshToken(refreshToken)
-        token.blacklist()
+@api_view(["POST"])
+def loginView(request):
+    serializer = LoginSerializer(data=request.data)
+    if serializer.is_valid(raise_exception=True):
+        email = serializer.validated_data["email"]
+        password = serializer.validated_data["password"]
 
-        res = response.Response()
-        res.delete_cookie(settings.SIMPLE_JWT['AUTH_COOKIE'])
-        res.delete_cookie(settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'])
-        res.delete_cookie("X-CSRFToken")
-        res.delete_cookie("csrftoken")
-        res["X-CSRFToken"] = None
+        tokens = get_user_tokens(email)
 
-        return res
-    except:
-        raise rest_exceptions.ParseError("Invalid token")
+        response_data = {
+            "access_token": tokens["access_token"],
+            "refresh_token": tokens["refresh_token"],
+        }
+        return Response(data=response_data, status=200)
 
-
-class CookieTokenRefreshSerializer(jwt_serializers.TokenRefreshSerializer):
-    refresh = None
-
-    def validate(self, attrs):
-        attrs['refresh'] = self.context['request'].COOKIES.get('refresh')
-        if attrs['refresh']:
-            return super().validate(attrs)
-        else:
-            raise jwt_exceptions.InvalidToken(
-                'No valid token found in cookie \'refresh\'')
-
-
-class CookieTokenRefreshView(jwt_views.TokenRefreshView):
-    serializer_class = CookieTokenRefreshSerializer
-
-    def finalize_response(self, request, response, *args, **kwargs):
-        if response.data.get("refresh"):
-            response.set_cookie(
-                key=settings.SIMPLE_JWT['AUTH_COOKIE_REFRESH'],
-                value=response.data['refresh'],
-                expires=settings.SIMPLE_JWT['REFRESH_TOKEN_LIFETIME'],
-                secure=settings.SIMPLE_JWT['AUTH_COOKIE_SECURE'],
-                httponly=settings.SIMPLE_JWT['AUTH_COOKIE_HTTP_ONLY'],
-                samesite=settings.SIMPLE_JWT['AUTH_COOKIE_SAMESITE']
-            )
-
-            del response.data["refresh"]
-        response["X-CSRFToken"] = request.COOKIES.get("csrftoken")
-        return super().finalize_response(request, response, *args, **kwargs)
+    else:
+        return Response({'msg': 'Invalid data'}, status=401)
 
 
 @api_view(['GET'])
@@ -142,11 +68,9 @@ def fetch_messages_by_channel_name(request, channel_name):
         return Response({'error': 'Channel does not exist'}, status=404)
 
 
-@csrf_protect
 @api_view(['POST'])
 def create_server(request):
 
-    print(request.user)
     if not request.user:
         return Response({'msg': 'Unauthorized'}, status=401)
 
@@ -154,8 +78,12 @@ def create_server(request):
     if serializer.is_valid():
 
         new_server = Server.objects.create(
-            owner=request.user, name=serializer.data.get('name'))
+            owner=request.user, name=serializer.data.get('name'), members=request.user)
         new_server.save()
+
+        member = Member.objects.create(
+            username=request.user, server=new_server, role='ADMIN')
+        member.save()
 
         return Response({'msg': 'Done'}, status=200)
     else:
@@ -216,14 +144,15 @@ def fetch_servers_by_userid(request):
         if not request.user:
             return Response({'msg': 'Unauthorized'}, status=401)
 
-        user_id = request.user.id
-        members = Member.objects.filter(id=user_id)
-        servers = Server.objects.filter(id=members.get('server'))
+        member = Member.objects.filter(username=request.user)
+        # Fetching servers associated with the member
+        servers = Server.objects.filter(members=request.user)
 
-        serializered_servers = ServerSerializer(servers)
-        return Response({'msg': 'success'}, data=serializered_servers, status=200)
-    except:
-        return Response({'msg': 'Something went wrong on server, please try again'}, status=500)
+        serialized_servers = ResponeServerSerializer(
+            servers, many=True)
+        return Response({'servers': serialized_servers.data}, status=200)
+    except Exception as e:
+        return Response({'msg': e}, status=500)
 
 
 @api_view(['GET'])
@@ -231,17 +160,21 @@ def fetch_members(request, server_id):
     try:
         if not request.user:
             return Response({'msg': 'Unauthorized'}, status=401)
-
-        currentuser = Member.objects.filter(
-            id=request.user.id, server=server_id)
-
-        if currentuser.get('role') == 'GUEST':
-            return Response({'msg': 'Guest cannot have access to server members'}, status=401)
-
         members = Member.objects.filter(server=server_id)
+        print(members)
+        serialized_memebers = MemberSerializer(members, many=True)
 
-        serializerzed_members = MemberSerializer(members).data
-
-        return Response({'msg': 'success'}, data=serializerzed_members, status=200)
+        return Response({'members': serialized_memebers.data}, status=200)
     except:
-        return Response({'msg': 'Something went wrong on server, please try again'}, status=500)
+        return Response({'msg': 'Something went w   rong on server, please try again'}, status=500)
+
+
+@rest_decorators.api_view(["GET"])
+def user(request):
+    try:
+        user = User.objects.get(id=request.user.id)
+    except User.DoesNotExist:
+        return response.Response(status_code=404)
+
+    serializer = AccountSerializer(user)
+    return response.Response(serializer.data)

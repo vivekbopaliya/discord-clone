@@ -24,6 +24,13 @@ class ServerSerializer(ModelSerializer):
         fields = ['name']
 
 
+class ResponeServerSerializer(ModelSerializer):
+
+    class Meta:
+        model = Server
+        fields = '__all__'
+
+
 class MemberSerializer(ModelSerializer):
     class Meta:
         model = Member

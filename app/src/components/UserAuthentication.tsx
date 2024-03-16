@@ -15,24 +15,23 @@ import axios, { AxiosError } from "axios";
 import { useMutation } from "@tanstack/react-query";
 import { toast } from "../ui/use-toast";
 import { axiosInstance } from "../axios/axiosInstance";
-import AuthContext from "../store/AuthContext";
-import useAuth from "../hooks/useAuth";
+import { useDispatch } from "react-redux";
+import { setAccessToken, setUser } from "../redux/auth";
+import { jwtDecode } from "jwt-decode";
 
 type AuthType = "REGISTER" | "LOGIN";
 
 const UserAuthentication = () => {
-  const { setAccessToken, setCSRFToken } = useAuth();
   const [auth, setAuth] = React.useState<AuthType>("REGISTER");
   const [name, setName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [password2, setPassword2] = React.useState("");
-  const [loading, setLoading] = React.useState<boolean>(false);
+
+  const dispatch = useDispatch();
+
   async function handleLogin(event: any) {
     event.preventDefault();
-
-    setLoading(true);
-
     try {
       const response = await axiosInstance.post(
         "auth/login/",
@@ -42,18 +41,13 @@ const UserAuthentication = () => {
         })
       );
       console.log(response.data);
-      // @ts-ignore
-      setAccessToken(response?.data?.access_token);
-      // @ts-ignore
-
-      // @ts-ignore
-      setCSRFToken(response?.data?.csrfToken);
-      setLoading(false);
+      localStorage.setItem("accessToken", response?.data?.access_token || null);
+      dispatch(setAccessToken(response?.data?.access_token || null));
     } catch (error) {
-      setLoading(false);
-      // TODO: handle errors
+      console.log(error);
     }
   }
+  console.log(localStorage.getItem("accessToken"));
 
   const { mutate: handleRegister, isPending: isLoading } = useMutation({
     mutationFn: async () => {
@@ -64,7 +58,10 @@ const UserAuthentication = () => {
         password2: password2,
       };
 
-      await axios.post("http://127.0.0.1:8000/api/auth/register/", payload);
+      await axiosInstance.post(
+        "http://127.0.0.1:8000/api/auth/register/",
+        payload
+      );
     },
     onError: (err) => {
       if (err instanceof AxiosError) {

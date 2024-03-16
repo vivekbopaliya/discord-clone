@@ -76,6 +76,8 @@ class Server(TimeStampedModel):
     profile = models.ImageField(blank=True, upload_to='serverAvatar/')
     owner = models.ForeignKey(
         User, related_name='server_owner', on_delete=models.CASCADE)
+    members = models.ForeignKey(
+        User, related_name='server_members', on_delete=models.CASCADE)
 
     def __str__(self):
         return self.name

@@ -11,7 +11,7 @@ import {
 } from "@tanstack/react-query";
 import { Provider } from "react-redux";
 import { Toaster } from "./ui/Toaster";
-import { AuthContextProvider } from "./store/AuthContext";
+import store from "./redux/store";
 const queryClient = new QueryClient();
 
 const root = ReactDOM.createRoot(
@@ -19,19 +19,19 @@ const root = ReactDOM.createRoot(
 );
 root.render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="dark"
-        enableSystem
-        disableTransitionOnChange
-      >
-        <AuthContextProvider>
+    <Provider store={store}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem
+          disableTransitionOnChange
+        >
           <App />
           <Toaster />
-        </AuthContextProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </Provider>
   </React.StrictMode>
 );
 
