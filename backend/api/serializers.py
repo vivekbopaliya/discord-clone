@@ -39,7 +39,13 @@ class MemberSerializer(ModelSerializer):
 
 class ChanbelSerializer(ModelSerializer):
     class Meta:
-        model = Member
+        model = Channel
+        fields = ['name']
+
+
+class ResponseChannelSerializer(ModelSerializer):
+    class Meta:
+        model = Channel
         fields = '__all__'
 
 

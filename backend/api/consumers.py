@@ -4,13 +4,14 @@ from .models import Message
 
 
 class ChannelChatConsumer (AsyncWebsocketConsumer):
+
     async def connect(self):
         print('this is connected!')
-        self.channel = self.scope['url_route']['kwargs']['channel_name']
-        self.chanel_group_name = 'channel_%s' % self.channel
+        self.room_name = self.scope['url_route']['kwargs']['room_name']
+        self.room_group_name = 'chat_%s' % self.room_name
 
         await self.channel_layer.group_add(
-            self.chanel_group_name,
+            self.room_group_name,
             self.channel_name
         )
 
@@ -19,7 +20,7 @@ class ChannelChatConsumer (AsyncWebsocketConsumer):
     async def disconnect(self):
         print('this is disconnected')
         await self.channel_layer.group_discard(
-            self.chanel_group_name,
+            self.room_group_name,
             self.channel_name
         )
 
@@ -33,7 +34,7 @@ class ChannelChatConsumer (AsyncWebsocketConsumer):
             username=username, channel=channel, message=message)
 
         await self.channel_layer.group_send(
-            self.chanel_group_name,
+            self.room_group_name,
             {
                 'type': 'channel_message',
                 'channel': channel,
@@ -79,7 +80,7 @@ class DirectChatConsumer(AsyncWebsocketConsumer):
         sender = text_json_data['sender']
 
         await self.channel_layer.on_add(
-            self.chanel_group_name,
+            self.room_group_name,
             {
                 'type': 'direct_message',
                 'message': message,

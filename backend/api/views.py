@@ -3,7 +3,7 @@ from django.views.decorators.csrf import csrf_protect
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from .models import Channel, Message, DirectMessge, Server, Member, User
-from .serializers import MessageSerializer, DirectMessageSerializer, ServerSerializer, MemberSerializer, ChanbelSerializer, UserSerializer, RegistrationSerializer, LoginSerializer, AccountSerializer, ResponeServerSerializer
+from .serializers import MessageSerializer, DirectMessageSerializer, ServerSerializer, MemberSerializer, ResponseChannelSerializer, ChanbelSerializer, UserSerializer, RegistrationSerializer, LoginSerializer, AccountSerializer, ResponeServerSerializer
 from rest_framework import serializers
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import authenticate
@@ -11,6 +11,7 @@ from django.conf import settings
 from rest_framework import exceptions as rest_exceptions, response, decorators as rest_decorators, permissions as rest_permissions
 from rest_framework_simplejwt import tokens, views as jwt_views, serializers as jwt_serializers, exceptions as jwt_exceptions
 from django.views.decorators.csrf import csrf_protect
+from django.contrib.auth.models import AnonymousUser
 
 
 def get_user_tokens(email):
@@ -90,6 +91,52 @@ def create_server(request):
         return Response({'msg': 'Invalid data'},  status=400)
 
 
+@api_view(['POST'])
+def create_channel(request, server_id):
+    print(request.user)
+    try:
+        if isinstance(request.user, AnonymousUser):
+            return Response({'msg': 'Unauthorized'}, status=401)
+        serializers = ChanbelSerializer(data=request.data)
+
+        if serializers.is_valid():
+            server = Server.objects.get(id=server_id)
+            member = Member.objects.get(
+                username=request.user, server=server_id)
+
+            serilaized_member = MemberSerializer(member)
+
+            if serilaized_member['role'] == 'GUEST':
+                return Response({'msg': 'You need to be Admin or Moderator to do this'})
+
+            channel = Channel.objects.create(
+                server=server, name=serializers.validated_data['name'])
+            channel.save()
+
+            serialized_channels = ResponseChannelSerializer(channel)
+            return Response({'channels': serialized_channels.data}, status=200)
+        else:
+            return Response({'msg': 'Invalid data'}, status=400)
+    except Exception as e:
+        return Response({'msg': str(e)}, status=500)
+
+
+@api_view(['GET'])
+def get_channels(request, server_id):
+    try:
+        if not request.user:
+            return Response({'msg': 'Unauthorized'}, status=200)
+
+        server = Server.objects.get(id=server_id)
+        channels = Channel.objects.filter(server=server)
+        serialized_channels = ResponseChannelSerializer(channels, many=True)
+
+        return Response({'channels': serialized_channels.data}, status=200)
+    except Exception as e:
+        print(e)
+        return Response({'error': str(e)}, status=500)
+
+
 def join_server(request):
     serializers = MemberSerializer(data=request.data)
 
@@ -103,26 +150,6 @@ def join_server(request):
         return Response({'msg': "success", "data": serialized_member['id']}, status=200)
     else:
         return Response({'msg': 'Invalid data!', 'error': serializers.errors}, status=400)
-
-
-def create_channel(request, server_id):
-    serializers = ChanbelSerializer(data=request.data)
-
-    if serializers.is_valid():
-        server = Server.objects.get(id=server_id)
-        members = Member.objects.filter(
-            server=server.get('id'), username=request.user.name)
-
-        serilaized_member = MemberSerializer(members)
-
-        if serilaized_member['role'] == 'GUEST':
-            raise serializers.ValidationError(
-                'You need to be owner or moderator of server to do this!')
-
-        channel = Channel.objects.create(
-            server=server_id, name=request.data.name)
-        channel.save()
-        return Response({'msg': 'success', 'data': channel.id}, status=200)
 
 
 @api_view(['GET'])

@@ -1,4 +1,5 @@
 import ChannelBar from "./components/ChannelBar";
+import ChatBar from "./components/ChatBar";
 import ServerBar from "./components/ServerBar";
 
 function App() {
@@ -11,7 +12,9 @@ function App() {
         <ChannelBar />
       </div>
 
-      <div className="col-span-8">here goes chat</div>
+      <div className="col-span-8">
+        <ChatBar />
+      </div>
     </div>
   );
 }
